@@ -46,3 +46,38 @@ class AIExplainer:
                 return f"Minor health drop observed. Recent changes slightly increased dependency fan-out and local complexity."
             else:
                 return f"System architecture remains stable. No significant risk factors were introduced in this commit."
+
+    async def generate_metric_explanation(self, metric_name: str, value: str, context: dict) -> str:
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        client = AsyncOpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=api_key or "",
+        )
+        
+        if not client:
+            return "AI Explanation unavailable: OPENAI_API_KEY not set."
+            
+        prompt = f"""
+        You are a senior systems architect analyzing a repository metric.
+        Explain briefly why the {metric_name} is currently rated as '{value}'.
+        
+        Context about the active commit:
+        - Commit Message: {context.get('message', 'N/A')}
+        - Raw Health Score: {context.get('composite_health', 0):.1f}/100
+        - Raw Complexity: {context.get('complexity_score', 0):.1f}
+        - Dependency Rot (imports/file): {context.get('dependency_rot', 0):.1f}
+        - Unique Git Authors in history: {context.get('bus_factor', 2)}
+        
+        Explain concisely why this metric received this rating based on the context. Focus specifically on the meaning of {metric_name} and how the context numbers justify '{value}'. 
+        Keep it under 3 sentences. Be highly technical and analytical. Do not use generic filler.
+        """
+        
+        try:
+            response = await client.chat.completions.create(
+                model="openai/gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=150
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            return f"The {metric_name} is at {value} due to the current repository state context. (AI temporarily unavailable)"

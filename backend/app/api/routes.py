@@ -18,6 +18,11 @@ router = APIRouter()
 class IngestRequest(BaseModel):
     repo_url: str
 
+class MetricExplanationRequest(BaseModel):
+    metric_name: str
+    value: str
+    context: dict
+
 def process_repository(repo_url: str, db: Session):
     # 1. Create Repo entry
     db_repo = models.Repository(url=repo_url)
@@ -190,4 +195,14 @@ async def generate_explanation(repo_id: int, commit_sha: str, db: Session = Depe
     curr.ai_explanation = explanation
     db.commit()
     
+    return {"status": "success", "explanation": explanation}
+
+@router.post("/metric-explanation")
+async def get_metric_explanation(req: MetricExplanationRequest):
+    explainer = AIExplainer()
+    explanation = await explainer.generate_metric_explanation(
+        metric_name=req.metric_name,
+        value=req.value,
+        context=req.context
+    )
     return {"status": "success", "explanation": explanation}

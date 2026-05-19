@@ -16,6 +16,83 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+function ExpandableMetricCard({ title, valueComponent, subtitleComponent, metricName, metricValue, repoId, context, apiBase, isExpandable = true }: any) {
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [explanation, setExplanation] = useState<string | null>(null);
+
+  const toggleExpand = async () => {
+    if (!isExpandable) return;
+    
+    if (!expanded && !explanation) {
+      setExpanded(true);
+      setLoading(true);
+      try {
+        const res = await fetch(`${apiBase}/api/metric-explanation`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            metric_name: metricName,
+            value: String(metricValue),
+            context: context || {}
+          })
+        });
+        const data = await res.json();
+        setExplanation(data.explanation);
+      } catch (err) {
+        console.error(err);
+        setExplanation("Failed to load explanation.");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setExpanded(!expanded);
+    }
+  };
+
+  return (
+    <div className="p-5 rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] backdrop-blur-md flex flex-col justify-between transition-all hover:shadow-md relative group">
+      <div className="flex justify-between items-start mb-1">
+        <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">{title}</div>
+        {isExpandable && (
+          <button 
+            onClick={toggleExpand}
+            className={`transition-colors p-1 rounded-full ${expanded ? 'text-indigo-600 bg-indigo-50' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
+            title="Explain this metric"
+          >
+            <BrainCircuit className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      <div>
+        {valueComponent}
+        {subtitleComponent}
+      </div>
+      
+      {/* Expandable Explanation Area */}
+      {expanded && isExpandable && (
+        <div className="mt-4 pt-3 border-t border-slate-100 animate-fade-in">
+          {loading ? (
+            <div className="flex items-center gap-2 text-xs text-indigo-500/80 italic">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Analyzing metric...</span>
+            </div>
+          ) : (
+            <div className="text-[11px] leading-relaxed text-slate-600 bg-slate-50/80 rounded-xl p-3 border border-slate-100 shadow-inner">
+              <div className="flex items-center gap-1.5 mb-1.5 text-indigo-600 font-bold">
+                <BrainCircuit className="w-3 h-3" />
+                <span>AI Insight</span>
+              </div>
+              {explanation}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function RepositoryAnalysis() {
   const { repoId } = useParams();
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
@@ -281,6 +358,15 @@ export default function RepositoryAnalysis() {
   const isProcessing = totalCommits > 0 && processedCommits < totalCommits;
   const progressPercent = totalCommits > 0 ? Math.round((processedCommits / totalCommits) * 100) : 0;
 
+  // Context for AI Explanations
+  const activeCommitContext = {
+    message: activeCommit?.message || latestCommit?.message,
+    composite_health: healthScore,
+    complexity_score: rawComplexity,
+    dependency_rot: depRot,
+    bus_factor: busFactorVal
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
       
@@ -381,24 +467,35 @@ export default function RepositoryAnalysis() {
         )}
 
         {/* 6 Top Analytics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-fade-in">
-          {/* Card 1: Repository Health Score */}
-          <div className="p-5 rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] backdrop-blur-md flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md">
-            <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Health Score</div>
-            <div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-fade-in items-start">
+          
+          <ExpandableMetricCard 
+            title="Health Score"
+            metricName="Health Score"
+            metricValue={`${healthScore.toFixed(0)}/100`}
+            repoId={repoId}
+            apiBase={API_BASE}
+            context={activeCommitContext}
+            valueComponent={
               <div className="font-mono text-3xl font-extrabold text-slate-900 tracking-tight">
                 {healthScore.toFixed(0)}<span className="text-slate-400 text-lg">/100</span>
               </div>
+            }
+            subtitleComponent={
               <div className="text-[9px] text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
                 <Heart className="w-3 h-3 fill-emerald-500 text-emerald-500" /> Dynamic Rating
               </div>
-            </div>
-          </div>
+            }
+          />
 
-          {/* Card 2: Risk Level */}
-          <div className="p-5 rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] backdrop-blur-md flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md">
-            <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Risk Level</div>
-            <div>
+          <ExpandableMetricCard 
+            title="Risk Level"
+            metricName="Risk Level"
+            metricValue={riskLevel}
+            repoId={repoId}
+            apiBase={API_BASE}
+            context={activeCommitContext}
+            valueComponent={
               <div className="flex items-center gap-2">
                 <span className={`text-2xl font-black uppercase tracking-tight ${riskColor.split(' ')[0]}`}>{riskLevel}</span>
                 <span className="relative flex h-3.5 w-3.5">
@@ -410,36 +507,50 @@ export default function RepositoryAnalysis() {
                   }`}></span>
                 </span>
               </div>
+            }
+            subtitleComponent={
               <div className="text-[10px] text-slate-450 font-semibold mt-1">Based on active state</div>
-            </div>
-          </div>
+            }
+          />
 
-          {/* Card 3: Commit Count */}
-          <div className="p-5 rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] backdrop-blur-md flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md">
-            <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Commit Count</div>
-            <div>
+          <ExpandableMetricCard 
+            title="Commit Count"
+            isExpandable={false}
+            valueComponent={
               <div className="font-mono text-2xl font-extrabold text-slate-900 tracking-tight leading-tight">
                 {commitCountStr}
               </div>
+            }
+            subtitleComponent={
               <div className="text-[10px] text-slate-450 font-semibold mt-1">All analyzed history</div>
-            </div>
-          </div>
+            }
+          />
 
-          {/* Card 4: Architecture Stability */}
-          <div className="p-5 rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] backdrop-blur-md flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md">
-            <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Architecture Stability</div>
-            <div>
+          <ExpandableMetricCard 
+            title="Architecture Stability"
+            metricName="Architecture Stability"
+            metricValue={stability}
+            repoId={repoId}
+            apiBase={API_BASE}
+            context={activeCommitContext}
+            valueComponent={
               <div className={`text-2xl font-black ${stabilityColor}`}>
                 {stability}
               </div>
+            }
+            subtitleComponent={
               <div className="text-[10px] text-slate-450 font-semibold mt-1">Coupling rot index</div>
-            </div>
-          </div>
+            }
+          />
 
-          {/* Card 5: Bus Factor */}
-          <div className="p-5 rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] backdrop-blur-md flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md">
-            <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Bus Factor</div>
-            <div>
+          <ExpandableMetricCard 
+            title="Bus Factor"
+            metricName="Bus Factor"
+            metricValue={`${busFactorVal} authors (${busRisk} Risk)`}
+            repoId={repoId}
+            apiBase={API_BASE}
+            context={activeCommitContext}
+            valueComponent={
               <div className="text-2xl font-extrabold text-slate-900 flex items-center gap-1.5">
                 {busFactorVal} 
                 <span className={`text-[9px] px-1.5 py-0.5 border rounded-full font-bold uppercase tracking-wider ${
@@ -448,20 +559,29 @@ export default function RepositoryAnalysis() {
                   {busRisk}
                 </span>
               </div>
+            }
+            subtitleComponent={
               <div className="text-[10px] text-slate-450 font-semibold mt-1">Unique Git authors</div>
-            </div>
-          </div>
+            }
+          />
 
-          {/* Card 6: Complexity Score */}
-          <div className="p-5 rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] backdrop-blur-md flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md">
-            <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1">Complexity Score</div>
-            <div>
+          <ExpandableMetricCard 
+            title="Complexity Score"
+            metricName="Complexity Score"
+            metricValue={`${complexityPct}%`}
+            repoId={repoId}
+            apiBase={API_BASE}
+            context={activeCommitContext}
+            valueComponent={
               <div className="font-mono text-3xl font-extrabold text-slate-900 tracking-tight">
                 {complexityPct}%
               </div>
+            }
+            subtitleComponent={
               <div className="text-[10px] text-slate-450 font-semibold mt-1">Weighted code index</div>
-            </div>
-          </div>
+            }
+          />
+
         </div>
 
         {/* Tab Selection Content */}
