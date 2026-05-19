@@ -18,6 +18,7 @@ import Link from "next/link";
 
 export default function RepositoryAnalysis() {
   const { repoId } = useParams();
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
   const [timeline, setTimeline] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCommit, setActiveCommit] = useState<any>(null);
@@ -51,7 +52,7 @@ export default function RepositoryAnalysis() {
   const fetchTimeline = async (showLoading = true) => {
     if (showLoading && timeline.length === 0) setLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/timeline/${repoId}`);
+      const res = await fetch(`${API_BASE}/api/timeline/${repoId}`);
       const data = await res.json();
       
       if (data.status === "success") {
@@ -88,7 +89,7 @@ export default function RepositoryAnalysis() {
     if (!baseSha || !targetSha) return;
     setDiffLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/diff/${baseSha}/${targetSha}`);
+      const res = await fetch(`${API_BASE}/api/diff/${baseSha}/${targetSha}`);
       const data = await res.json();
       if (data.status === "success") {
         const base = data.base_graph || { nodes: [], edges: [] };
@@ -167,7 +168,7 @@ export default function RepositoryAnalysis() {
     
     // Fetch Graph for this commit
     try {
-      const gRes = await fetch(`http://localhost:8000/api/graph/${commit.sha}`);
+      const gRes = await fetch(`${API_BASE}/api/graph/${commit.sha}`);
       const gData = await gRes.json();
       setGraphElements(gData.graph || []);
     } catch (err) {
@@ -180,7 +181,7 @@ export default function RepositoryAnalysis() {
     } else {
       setAiLoading(true);
       try {
-        const aiRes = await fetch(`http://localhost:8000/api/ai-explanation/${repoId}/${commit.sha}`, { method: 'POST' });
+        const aiRes = await fetch(`${API_BASE}/api/ai-explanation/${repoId}/${commit.sha}`, { method: 'POST' });
         const aiData = await aiRes.json();
         setExplanation(aiData.explanation);
         

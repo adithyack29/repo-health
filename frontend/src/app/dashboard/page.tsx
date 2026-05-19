@@ -9,13 +9,15 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
   const handleIngest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!repoUrl) return;
     
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/ingest", {
+      const res = await fetch(`${API_BASE}/api/ingest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repo_url: repoUrl })
@@ -28,7 +30,7 @@ export default function Dashboard() {
         // or actually fetch the ID if the backend returns it.
         // For now, let's assume the backend returned repo_id or we poll the repos list.
         // As a shortcut, we'll fetch the repos list and take the first one or the one matching the URL.
-        const reposRes = await fetch("http://localhost:8000/api/repositories");
+        const reposRes = await fetch(`${API_BASE}/api/repositories`);
         const reposData = await reposRes.json();
         
         const repo = reposData.repositories.find((r: any) => r.url === repoUrl) || reposData.repositories[reposData.repositories.length - 1];
